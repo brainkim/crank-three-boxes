@@ -6,6 +6,8 @@
   "scripts": {
     "start": "parcel index.html --open",
     "build": "parcel build index.html",
+    "predeploy": "yarn build",
+    "deploy": "gh-pages -d dist",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -13,6 +15,7 @@
     "three": "0.115.0"
   },
   "devDependencies": {
+    "gh-pages": "^2.2.0",
     "parcel-bundler": "^1.6.1",
     "typescript": "^3.8.3"
   },
