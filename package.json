@@ -5,8 +5,10 @@
   "main": "index.html",
   "scripts": {
     "start": "parcel index.html --open",
+    "clean": "rm -rf dist",
+    "prebuild": "yarn clean",
     "build": "parcel build index.html",
-    "predeploy": "yarn build",
+    "predeploy": "yarn build --public-url https://brainkim.github.io/crank-three-boxes/",
     "deploy": "gh-pages -d dist",
     "typecheck": "tsc --noEmit"
   },
