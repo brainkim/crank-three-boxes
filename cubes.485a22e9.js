@@ -17,4 +17,4 @@ var t=function(t){"use strict";var r,e=Object.prototype,n=e.hasOwnProperty,o="fu
 },{"@bikeshaving/crank":"sEOf","@bikeshaving/crank/dom":"bsym","./crank-three":"Wll2"}],"Focm":[function(require,module,exports) {
 "use strict";require("regenerator-runtime/runtime"),require("./src/index");
 },{"regenerator-runtime/runtime":"KA2S","./src/index":"OGgv"}]},{},["Focm"], null)
-//# sourceMappingURL=/cubes.485a22e9.js.map
+//# sourceMappingURL=https://brainkim.github.io/crank-three-boxes/cubes.485a22e9.js.map
