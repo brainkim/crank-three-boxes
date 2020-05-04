@@ -1,0 +1,18 @@
+{
+  "include": ["src/**/*"],
+  "compilerOptions": {
+    "target": "ES6",
+    "strict": true,
+    "jsx": "react",
+    "esModuleInterop": true,
+    "downlevelIteration": true,
+    "sourceMap": true,
+    "allowJs": true,
+    "lib": [
+      "es6",
+      "dom"
+    ],
+    "rootDir": "src",
+    "moduleResolution": "node"
+  }
+}

@@ -1,0 +1,9 @@
+node_modules
+cjs
+esm
+lib
+dist
+coverage
+yarn-debug.log*
+yarn-error.log*
+.cache
