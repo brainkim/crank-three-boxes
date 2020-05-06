@@ -9,7 +9,7 @@
     "sourceMap": true,
     "allowJs": true,
     "lib": [
-      "es6",
+      "ESNext",
       "dom"
     ],
     "rootDir": "src",

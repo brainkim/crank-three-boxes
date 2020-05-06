@@ -23,7 +23,6 @@ function updateChildren(
 		}
 	}
 
-	// TODO: delete old children
 	for (const child of children) {
 		if (child instanceof THREE.Object3D) {
 			obj.remove(child);
@@ -36,8 +35,6 @@ type THREENode = THREE.Object3D | THREE.BufferGeometry | THREE.Material;
 class CrankThreeRenderer extends CrankRenderer<THREENode> {
 	constructor() {
 		super();
-		// TODO: I think we could expose the actual renderer instance onto hostcontext so we don’t need to use this closure.
-
 		// TODO: any further investigation of a three renderer should probably use
 		// a more robust form of a links system like this. Borrows from svg defs
 		// and use and allows us to declaratively render scene graphs which share
@@ -185,11 +182,7 @@ export function* Canvas(this: Context) {
 	const threeRenderer = new THREE.WebGLRenderer();
 	const crankRenderer = new CrankThreeRenderer();
 	for (const {children} of this) {
-		crankRenderer.render(
-			// TODO: allow first arg to renderer.render to be Children;
-			<Fragment>{children}</Fragment>,
-			threeRenderer,
-		);
+		crankRenderer.render(children, threeRenderer);
 		yield <Raw value={threeRenderer.domElement} />;
 	}
 }
