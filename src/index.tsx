@@ -18,6 +18,9 @@ function* Box(this: Context) {
 }
 
 function* Boxes(this: Context, {amount}: any) {
+	// TODO: if there was a way to bubble events from the child renderer to the
+	// parent renderer we could define the requestAnimationFrame stuff directly
+	// in this component
 	const boxes = Array.from({length: amount}, () => <Box />);
 	for (const {amount: newAmount} of this) {
 		if (amount !== newAmount) {
@@ -35,12 +38,12 @@ function* Boxes(this: Context, {amount}: any) {
 }
 
 function* Demo(this: Context) {
-	let frame: any;
 	let amount = 200;
-	let t = 0;
-	// filling with an inital value so Array.prototype.reduce doesn’t throw an error
-	const times = [1];
-
+	let fps = NaN;
+	let t: number | undefined;
+	const times: Array<number> = [];
+	let frame: ReturnType<typeof requestAnimationFrame>;
+	const frames: Array<number> = [];
 	this.addEventListener("input", (ev) => {
 		if ((ev.target as HTMLElement).tagName === "INPUT") {
 			amount = parseInt((ev.target as HTMLInputElement).value);
@@ -50,17 +53,23 @@ function* Demo(this: Context) {
 	try {
 		while (true) {
 			frame = requestAnimationFrame((t1) => {
-				const d = t1 - t;
-				if (times.length > 30) {
-					times.shift();
+				if (t === undefined) {
+					t = t1;
+					this.refresh();
+					return;
 				}
 
-				times.push(d);
+				times.push(t1 - t);
 				t = t1;
+				if (times.length >= 30) {
+					const avg = times.reduce((t, t1) => t + t1) / times.length;
+					fps = Math.round(1000 / avg);
+					times.length = 0;
+				}
+
 				this.refresh();
 			});
-			const avgTime = times.reduce((total, t) => total + t) / times.length;
-			const fps = Math.round(1000 / avgTime);
+
 			yield (
 				<Fragment>
 					<Canvas>
@@ -84,7 +93,7 @@ function* Demo(this: Context) {
 			);
 		}
 	} finally {
-		cancelAnimationFrame(frame);
+		cancelAnimationFrame(frame!);
 	}
 }
 
