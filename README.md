@@ -2,4 +2,6 @@
 
 Participating in a framework twitter beef from October 2019.
 
-If you’re interested in working on a Crank/Three.js renderer please hit me up and I can get you started.
+[Live demo](https://brainkim.github.io/crank-three-boxes/)
+
+If you’re interested in working on a Crank/Three.js renderer please hit me up by email!
