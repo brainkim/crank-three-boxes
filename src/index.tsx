@@ -18,82 +18,90 @@ function* Box(this: Context) {
 }
 
 function* Boxes(this: Context, {amount}: any) {
-	// TODO: if there was a way to bubble events from the child renderer to the
-	// parent renderer we could define the requestAnimationFrame stuff directly
-	// in this component
-	const boxes = Array.from({length: amount}, () => <Box />);
-	for (const {amount: newAmount} of this) {
-		if (amount !== newAmount) {
-			if (amount < newAmount) {
-				boxes.push(...Array.from({length: newAmount - amount}, () => <Box />));
-			} else {
-				boxes.length = newAmount;
-			}
-
-			amount = newAmount;
+	let t: number | undefined;
+	let fps = 60;
+	const times: Array<number> = [];
+	let frame: ReturnType<typeof requestAnimationFrame>;
+	const animate = (t1: number) => {
+		frame = requestAnimationFrame(animate);
+		if (t === undefined) {
+			t = t1;
+			this.refresh();
+			return;
 		}
 
-		yield boxes;
+		times.push(t1 - t);
+		t = t1;
+		if (times.length >= 30) {
+			const avg = times.reduce((t, t1) => t + t1) / times.length;
+			fps = Math.round(1000 / avg);
+			times.length = 0;
+			this.dispatchEvent(new CustomEvent("fps", {
+				bubbles: true,
+				detail: {avg, fps},
+			}));
+		}
+
+		this.refresh();
+	};
+
+	frame = requestAnimationFrame(animate);
+	const boxes = Array.from({length: amount}, () => <Box />);
+	try {
+		for (const {amount: newAmount} of this) {
+			if (amount !== newAmount) {
+				if (amount < newAmount) {
+					boxes.push(...Array.from({length: newAmount - amount}, () => <Box />));
+				} else {
+					boxes.length = newAmount;
+				}
+
+				amount = newAmount;
+			}
+
+			yield boxes;
+		}
+	} finally {
+		cancelAnimationFrame(frame);
 	}
 }
 
 function* Demo(this: Context) {
 	let amount = 200;
 	let fps = NaN;
-	let t: number | undefined;
-	const times: Array<number> = [];
-	let frame: ReturnType<typeof requestAnimationFrame>;
-	const frames: Array<number> = [];
 	this.addEventListener("input", (ev) => {
 		if ((ev.target as HTMLElement).tagName === "INPUT") {
 			amount = parseInt((ev.target as HTMLInputElement).value);
 		}
 	});
 
-	try {
-		while (true) {
-			frame = requestAnimationFrame((t1) => {
-				if (t === undefined) {
-					t = t1;
-					this.refresh();
-					return;
-				}
+	this.addEventListener("fps", (ev) => {
+		fps = ev.detail.fps;
+		this.refresh();
+	});
 
-				times.push(t1 - t);
-				t = t1;
-				if (times.length >= 30) {
-					const avg = times.reduce((t, t1) => t + t1) / times.length;
-					fps = Math.round(1000 / avg);
-					times.length = 0;
-				}
-
-				this.refresh();
-			});
-
-			yield (
-				<Fragment>
-					<Canvas>
-						<boxBufferGeometry id="box" width={1} height={1} depth={1} />
-						<meshNormalMaterial id="normal" />
-						<Boxes amount={amount} />
-					</Canvas>
-					<div style="position: absolute; top: 25px; left: 25px">
-						<div>
-							<a href="https://crank.js.org">Crank.js</a> Three.js Boxes Demo
-						</div>
-						<div>FPS: {fps}</div>
+	while (true) {
+		yield (
+			<Fragment>
+				<Canvas>
+					<box id="box" width={1} height={1} depth={1} />
+					<normal id="normal" />
+					<Boxes amount={amount} />
+				</Canvas>
+				<div style="position: absolute; top: 25px; left: 25px">
+					<div>
+						<a href="https://crank.js.org">Crank.js</a> Three.js Boxes Demo
 					</div>
-					<div style="position: absolute; top: 25px; right: 25px; text-align: right">
-						<label>
-							<div>Boxes: {amount}</div>
-							<input type="range" min="1" max="10000" value={amount} />
-						</label>
-					</div>
-				</Fragment>
-			);
-		}
-	} finally {
-		cancelAnimationFrame(frame!);
+					<div>FPS: {Number.isNaN(fps) ? "N/A" : fps}</div>
+				</div>
+				<div style="position: absolute; top: 25px; right: 25px; text-align: right">
+					<label>
+						<div>Boxes: {amount}</div>
+						<input type="range" min="1" max="5000" value={amount} />
+					</label>
+				</div>
+			</Fragment>
+		);
 	}
 }
 

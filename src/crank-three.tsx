@@ -3,186 +3,181 @@ import {
 	Context,
 	createElement,
 	Fragment,
-	HostContext,
 	Portal,
 	Raw,
 	Renderer as CrankRenderer,
+	TagProps,
 } from "@bikeshaving/crank";
 import * as THREE from "three";
-
-function updateChildren(
-	obj: THREE.Object3D,
-	children: Set<THREENode>,
-	newChildren: Set<THREENode>,
-): void {
-	for (const child of newChildren) {
-		if (children.has(child)) {
-			children.delete(child);
-		} else if (child instanceof THREE.Object3D) {
-			obj.add(child);
-		}
-	}
-
-	for (const child of children) {
-		if (child instanceof THREE.Object3D) {
-			obj.remove(child);
-		}
-	}
+import {BoxBufferGeometry} from "three";
+class Linker {
 }
 
 type THREENode = THREE.Object3D | THREE.BufferGeometry | THREE.Material;
-
-class CrankThreeRenderer extends CrankRenderer<THREENode> {
-	constructor() {
+export class CrankThreeRenderer extends CrankRenderer<
+	THREENode,
+	unknown,
+	THREE.Scene
+> {
+	_links: Record<string, THREENode> = {};
+	_renderer: THREE.Renderer;
+	_camera: THREE.Camera;
+	constructor(renderer: THREE.Renderer, camera: THREE.Camera) {
 		super();
-		// TODO: any further investigation of a three renderer should probably use
-		// a more robust form of a links system like this. Borrows from svg defs
-		// and use and allows us to declaratively render scene graphs which share
-		// materials/geometries while still being able to use element trees. The
-		// following is a poor man’s implementation of id/url(#id) references and I
-		// would need to do a little more thinking about how to implement this more
-		// robustly.
-		const links: Record<string, THREENode> = {};
-		function link(href: string): THREENode | undefined {
-			// mimics the convention from svg url(#path);
-			const match = href.match(/url\(#(.*)\)/);
-			if (match == null || match[1] == null) {
-				return;
-			}
+		this._renderer = renderer;
+		this._camera = camera;
+	}
 
-			return links[match[1]];
+	// TODO: more robust linking system
+	link(href: string): THREENode | undefined {
+		// TODO: is there an API I can use for this
+		// mimics the convention from svg url(#path);
+		const match = href.match(/url\(#(.*)\)/);
+		if (match == null || match[1] == null) {
+			return;
 		}
 
-		this.extend({
-			*mesh(this: HostContext, {geometry, material}: any) {
-				let geometry1 =
-					typeof geometry === "string" ? link(geometry) : geometry;
-				let material1 =
-					typeof material === "string" ? link(material) : material;
+		return this._links[match[1]];
+	}
 
-				const mesh = new THREE.Mesh(geometry1, material1);
-				for (const {geometry: newGeometry, material: newMaterial} of this) {
-					if (geometry !== newGeometry) {
-						geometry = newGeometry;
-						geometry1 =
-							typeof geometry === "string" ? link(geometry) : geometry;
-						mesh.geometry = geometry1;
-					}
+	create<TTag extends string | symbol>(
+		tag: TTag,
+		props: TagProps<TTag>
+	): THREENode {
+		switch (tag) {
+			case "mesh":
+				return new THREE.Mesh();
+				const mesh = new THREE.Mesh();
+				return mesh;
+			case "box":
+				return new THREE.BoxBufferGeometry(props.width, props.height, props.depth);
+			case "normal":
+				return new THREE.MeshNormalMaterial();
+			default:
+				throw new Error(`Unknown tag: ${tag.toString()}`);
+		}
+	}
 
-					if (material !== newMaterial) {
-						material = newMaterial;
-						material1 =
-							typeof material1 === "string" ? link(material) : material;
-						mesh.material = material1;
-					}
-
-					yield mesh;
-				}
-			},
-			*boxBufferGeometry(this: HostContext, {width, height, depth, id}: any) {
-				let geometry = new THREE.BoxBufferGeometry(width, height, depth);
-				if (id !== undefined) {
-					links[id] = geometry;
-				}
-
-				try {
-					for (const newProps of this) {
-						if (
-							width !== newProps.width ||
-							height !== newProps.height ||
-							depth !== newProps.depth
-						) {
-							geometry.dispose();
-							width = newProps.width;
-							height = newProps.height;
-							depth = newProps.depth;
-							geometry = new THREE.BoxBufferGeometry(width, height, depth);
-						}
-
-						if (id !== newProps.id) {
-							delete links[id];
-							if (newProps.id) {
-								links[newProps.id] = geometry;
-							}
-
-							id = newProps.id;
-						}
-
-						yield geometry;
-					}
-				} finally {
-					geometry.dispose();
-				}
-			},
-			*meshNormalMaterial(this: HostContext, {id}: any) {
-				const material = new THREE.MeshNormalMaterial();
-				if (id !== undefined) {
-					links[id] = material;
+	patch<TTag extends string | symbol>(
+		tag: TTag,
+		props: TagProps<TTag>,
+		node: THREENode,
+	): void {
+		switch (tag) {
+			case "mesh":
+				const mesh = node as THREE.Mesh;
+				let {geometry, material} = props;
+				if (typeof geometry === "string") {
+					geometry = this.link(geometry);
 				}
 
-				try {
-					for (const newProps of this) {
-						if (id !== newProps.id) {
-							delete links[id];
-							if (newProps.id) {
-								links[newProps.id] = material;
-							}
-
-							id = newProps.id;
-						}
-
-						yield material;
-					}
-				} finally {
-					material.dispose();
+				if (typeof material === "string") {
+					material = this.link(material);
 				}
-			},
-			*[Portal](this: HostContext, {root: renderer}) {
-				// TODO: un-hard-code all of this. We need to figure out:
-				// 1. What is the root object by which the scene graph is keyed?
-				// 2. Where do we call renderer.render?
-				// 3. Should cameras exist in the element tree or somewhere else?
-				// 4. What about orbit controls and such?
-				// 5. What about resize stuff?
-				// 6. How do we allow DOM Renderers to add properties to the raw canvas?
-				renderer.setClearColor(0xffffff);
-				const camera = new THREE.PerspectiveCamera(
-					50,
-					window.innerWidth / window.innerHeight,
-					1,
-					1000,
-				);
-				const onresize = () => {
-					renderer.setSize(window.innerWidth, window.innerHeight);
-					camera.aspect = window.innerWidth / window.innerHeight;
-					camera.updateProjectionMatrix();
-				};
-				onresize();
-				window.addEventListener("resize", onresize);
-				camera.position.z = 4;
-				let children: Set<THREENode> = new Set();
-				const scene = new THREE.Scene();
-				try {
-					for (const {children: newChildren} of this) {
-						const newChildrenSet = new Set(newChildren);
-						updateChildren(scene, children, newChildrenSet);
-						renderer.render(scene, camera);
-						yield scene;
-						children = newChildrenSet;
-					}
-				} finally {
-					window.removeEventListener("resize", onresize);
+
+				mesh.geometry = geometry;
+				mesh.material = material;
+				break;
+			case "box":
+				// TODO: figure out how to patch geometries
+				if (typeof props.id === "string") {
+					this._links[props.id] = node;
 				}
-			},
-		});
+				break;
+			case "normal":
+				if (typeof props.id === "string") {
+					this._links[props.id] = node;
+				}
+				break;
+			default:
+				throw new Error(`Unknown tag: ${tag.toString()}`);
+		}
+	}
+
+	arrange<TTag extends string | symbol>(
+		tag: TTag,
+		props: TagProps<TTag>,
+		parent: THREENode, 
+		children: Array<THREENode | string>
+	): void {
+		if (!(parent instanceof THREE.Object3D)) {
+			return;
+		}
+
+		const oldSet: Set<THREE.Object3D> | undefined = (parent as any).__cranky;
+		const newSet = new Set<THREE.Object3D>();
+		for (let i = 0; i < children.length; i++) {
+			const child = children[i];
+			if (child instanceof THREE.Object3D) {
+				if (oldSet === undefined || !oldSet.has(child)) {
+					parent.add(child);
+				} else if (oldSet !== undefined) {
+					oldSet.delete(child);
+				}
+
+				newSet.add(child);
+			}
+		}
+
+		if (oldSet) {
+			for (const child of oldSet) {
+				parent.remove(child);
+			}
+		}
+
+		if (newSet.size) {
+			(parent as any).__cranky = newSet;
+		} else if (typeof (parent as any).__cranky !== "undefined") {
+			(parent as any).__cranky = undefined;
+		}
+	}
+
+	dispose<TTag extends string | symbol>(
+		tag: TTag,
+		props: TagProps<TTag>,
+		node: THREENode,
+	): void {
+		switch (tag) {
+			case "mesh":
+				break;
+			case "box":
+				const box = node as THREE.BoxBufferGeometry;
+				box.dispose();
+				break;
+			case "normal":
+				const normal = node as THREE.MeshNormalMaterial;
+				normal.dispose();
+				break;
+		}
+	}
+
+	complete(scene: THREE.Scene): void {
+		this._renderer.render(scene, this._camera);
 	}
 }
 
 export function* Canvas(this: Context) {
-	const threeRenderer = new THREE.WebGLRenderer();
-	const crankRenderer = new CrankThreeRenderer();
+	// TODO: stop hard coding this stuff
+	const threeRenderer = new THREE.WebGLRenderer({antialias: true});
+	threeRenderer.setClearColor(0xffffff);
+	const camera = new THREE.PerspectiveCamera(
+		50,
+		window.innerWidth / window.innerHeight,
+		1,
+		1000,
+	);
+	camera.position.z = 4;
+	const onresize = () => {
+		threeRenderer.setSize(window.innerWidth, window.innerHeight);
+		camera.aspect = window.innerWidth / window.innerHeight;
+		camera.updateProjectionMatrix();
+	};
+	onresize();
+	window.addEventListener("resize", onresize);
+	const crankRenderer = new CrankThreeRenderer(threeRenderer, camera);
+	const scene = new THREE.Scene();
 	for (const {children} of this) {
-		crankRenderer.render(children, threeRenderer);
+		crankRenderer.render(children, scene, this);
 		yield <Raw value={threeRenderer.domElement} />;
 	}
 }
