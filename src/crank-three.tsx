@@ -2,6 +2,7 @@
 import {
 	Context,
 	createElement,
+	Element,
 	Fragment,
 	Portal,
 	Raw,
@@ -10,8 +11,6 @@ import {
 } from "@bikeshaving/crank";
 import * as THREE from "three";
 import {BoxBufferGeometry} from "three";
-class Linker {
-}
 
 type THREENode = THREE.Object3D | THREE.BufferGeometry | THREE.Material;
 export class CrankThreeRenderer extends CrankRenderer<
@@ -40,33 +39,24 @@ export class CrankThreeRenderer extends CrankRenderer<
 		return this._links[match[1]];
 	}
 
-	create<TTag extends string | symbol>(
-		tag: TTag,
-		props: TagProps<TTag>
-	): THREENode {
-		switch (tag) {
+	create(el: Element): THREENode {
+		switch (el.tag) {
 			case "mesh":
 				return new THREE.Mesh();
-				const mesh = new THREE.Mesh();
-				return mesh;
 			case "box":
-				return new THREE.BoxBufferGeometry(props.width, props.height, props.depth);
+				return new THREE.BoxBufferGeometry(el.props.width, el.props.height, el.props.depth);
 			case "normal":
 				return new THREE.MeshNormalMaterial();
 			default:
-				throw new Error(`Unknown tag: ${tag.toString()}`);
+				throw new Error(`Unknown tag: ${el.tag.toString()}`);
 		}
 	}
 
-	patch<TTag extends string | symbol>(
-		tag: TTag,
-		props: TagProps<TTag>,
-		node: THREENode,
-	): void {
-		switch (tag) {
+	patch(el: Element, node: THREENode): void {
+		switch (el.tag) {
 			case "mesh":
 				const mesh = node as THREE.Mesh;
-				let {geometry, material} = props;
+				let {geometry, material} = el.props;
 				if (typeof geometry === "string") {
 					geometry = this.link(geometry);
 				}
@@ -80,23 +70,22 @@ export class CrankThreeRenderer extends CrankRenderer<
 				break;
 			case "box":
 				// TODO: figure out how to patch geometries
-				if (typeof props.id === "string") {
-					this._links[props.id] = node;
+				if (typeof el.props.id === "string") {
+					this._links[el.props.id] = node;
 				}
 				break;
 			case "normal":
-				if (typeof props.id === "string") {
-					this._links[props.id] = node;
+				if (typeof el.props.id === "string") {
+					this._links[el.props.id] = node;
 				}
 				break;
 			default:
-				throw new Error(`Unknown tag: ${tag.toString()}`);
+				throw new Error(`Unknown tag: ${el.tag.toString()}`);
 		}
 	}
 
-	arrange<TTag extends string | symbol>(
-		tag: TTag,
-		props: TagProps<TTag>,
+	arrange(
+		el: Element,
 		parent: THREENode, 
 		children: Array<THREENode | string>
 	): void {
@@ -119,7 +108,7 @@ export class CrankThreeRenderer extends CrankRenderer<
 			}
 		}
 
-		if (oldSet) {
+		if (oldSet && oldSet.size) {
 			for (const child of oldSet) {
 				parent.remove(child);
 			}
@@ -132,12 +121,8 @@ export class CrankThreeRenderer extends CrankRenderer<
 		}
 	}
 
-	dispose<TTag extends string | symbol>(
-		tag: TTag,
-		props: TagProps<TTag>,
-		node: THREENode,
-	): void {
-		switch (tag) {
+	dispose(el: Element, node: THREENode): void {
+		switch (el.tag) {
 			case "mesh":
 				break;
 			case "box":

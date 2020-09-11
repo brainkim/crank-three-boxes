@@ -1,7 +1,7 @@
 /** @jsx createElement */
-import {createElement, Context, Copy, Fragment} from "@bikeshaving/crank";
-import {renderer} from "@bikeshaving/crank/dom";
-import {Canvas} from "./crank-three";
+import {createElement, Context, Copy, Fragment} from "@bikeshaving/crank/crank.js";
+import {renderer} from "@bikeshaving/crank/dom.js";
+import {Canvas} from "./crank-three.tsx";
 
 const ra = () => Math.random() * 360;
 
@@ -22,8 +22,12 @@ function* Boxes(this: Context, {amount}: any) {
 	let fps = 60;
 	const times: Array<number> = [];
 	let frame: ReturnType<typeof requestAnimationFrame>;
-	const animate = (t1: number) => {
-		frame = requestAnimationFrame(animate);
+	// We use this flag so the component doesn’t rerender outside RAF callbacks.
+	let animating = false;
+	const onframe = (t1: number) => {
+		frame = requestAnimationFrame(onframe);
+		animating = true;
+
 		if (t === undefined) {
 			t = t1;
 			this.refresh();
@@ -45,7 +49,7 @@ function* Boxes(this: Context, {amount}: any) {
 		this.refresh();
 	};
 
-	frame = requestAnimationFrame(animate);
+	frame = requestAnimationFrame(onframe);
 	const boxes = Array.from({length: amount}, () => <Box />);
 	try {
 		for (const {amount: newAmount} of this) {
@@ -59,7 +63,12 @@ function* Boxes(this: Context, {amount}: any) {
 				amount = newAmount;
 			}
 
-			yield boxes;
+			if (animating) {
+				animating = false;
+				yield boxes;
+			} else {
+				yield <Copy />;
+			}
 		}
 	} finally {
 		cancelAnimationFrame(frame);
@@ -68,7 +77,7 @@ function* Boxes(this: Context, {amount}: any) {
 
 function* Demo(this: Context) {
 	let amount = 200;
-	let fps = NaN;
+	let fps = 0;
 	this.addEventListener("input", (ev) => {
 		if ((ev.target as HTMLElement).tagName === "INPUT") {
 			amount = parseInt((ev.target as HTMLInputElement).value);
@@ -92,7 +101,7 @@ function* Demo(this: Context) {
 					<div>
 						<a href="https://crank.js.org">Crank.js</a> Three.js Boxes Demo
 					</div>
-					<div>FPS: {Number.isNaN(fps) ? "N/A" : fps}</div>
+					<div>FPS: {fps}</div>
 				</div>
 				<div style="position: absolute; top: 25px; right: 25px; text-align: right">
 					<label>
@@ -106,3 +115,11 @@ function* Demo(this: Context) {
 }
 
 renderer.render(<Demo />, document.getElementById("app")!);
+
+declare global {
+	module Crank {
+		interface EventMap {
+			"fps": CustomEvent<{avg: number, fps: number}>;
+		}
+	}
+}
