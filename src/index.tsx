@@ -1,11 +1,12 @@
 /** @jsx createElement */
-import {createElement, Context, Copy, Fragment} from "@bikeshaving/crank/crank.js";
+import {createElement, Context, Copy, Fragment, Child} from "@bikeshaving/crank/crank.js";
 import {renderer} from "@bikeshaving/crank/dom.js";
-import {Canvas} from "./crank-three.tsx";
+import {Canvas} from "./crank-three";
 
 const ra = () => Math.random() * 360;
 
-function* Box(this: Context) {
+function* Box(this: Context): Generator<Child, any, any> {
+	this.schedule(() => this.refresh());
 	const mesh = yield <mesh geometry="url(#box)" material="url(#normal)" />;
 	mesh.rotation.x = ra();
 	mesh.rotation.y = ra();

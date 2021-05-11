@@ -3,14 +3,10 @@ import {
 	Context,
 	createElement,
 	Element,
-	Fragment,
-	Portal,
 	Raw,
 	Renderer as CrankRenderer,
-	TagProps,
 } from "@bikeshaving/crank";
 import * as THREE from "three";
-import {BoxBufferGeometry} from "three";
 
 type THREENode = THREE.Object3D | THREE.BufferGeometry | THREE.Material;
 export class CrankThreeRenderer extends CrankRenderer<
@@ -85,8 +81,8 @@ export class CrankThreeRenderer extends CrankRenderer<
 	}
 
 	arrange(
-		el: Element,
-		parent: THREENode, 
+		_el: Element,
+		parent: THREENode,
 		children: Array<THREENode | string>
 	): void {
 		if (!(parent instanceof THREE.Object3D)) {
